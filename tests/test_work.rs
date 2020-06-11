@@ -1,22 +1,15 @@
-# libcgroup_rs
-Rust library for managing control groups under Linux 
+use libcgroup_rs::prelude::CGroup;
+use libcgroup_rs::cg::CGroupBuilder;
+
+#[test]
+fn test_work()->Result<(),std::io::Error>{
 
 
-### Manual
-* [libgroup](http://www.libcg.sourceforge.net/html)
-* [cgroup_v1](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/)
-* [cgroup_v2](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html)
-
-
-
-### Usage
-
-```rust
-fn main()->Result<(),std::io::Error>{
 
     // Initialize
     CGroup::init()?;
     println!("Mount Point = {:?}",CGroup::get_subsys_mount_point("cpu"));
+
 
     // create cgroup container
     let container_name = "container_test_work";
@@ -30,4 +23,3 @@ fn main()->Result<(),std::io::Error>{
 
     Ok(())
 }
-```
