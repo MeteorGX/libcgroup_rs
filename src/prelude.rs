@@ -38,6 +38,30 @@
 //!    - cgroup_get_value_name_count
 //!    - cgroup_get_value_name
 //!
+//!
+//! ### 3.Iterators
+//!
+//! URL: [Iterators](http://libcg.sourceforge.net/html/group__group__iterators.html)
+//!
+//! Functions:
+//!    - cgroup_walk_tree_begin
+//!    - cgroup_walk_tree_next
+//!    - cgroup_walk_tree_end
+//!    - cgroup_walk_tree_set_flags
+//!    - cgroup_read_stats_begin
+//!    - cgroup_read_stats_next
+//!    - cgroup_read_stats_end
+//!    - cgroup_get_task_begin
+//!    - cgroup_get_task_next
+//!    - cgroup_get_task_end
+//!    - cgroup_get_controller_begin
+//!    - cgroup_get_controller_next
+//!    - cgroup_get_controller_end
+//!    - cgroup_get_all_controller_begin
+//!    - cgroup_get_all_controller_next
+//!    - cgroup_get_all_controller_end
+//!
+//!
 //! ### 6.Error handling
 //!
 //! URL: [Error handling](http://libcg.sourceforge.net/html/group__group__errors.html)
@@ -50,6 +74,7 @@
 
 #[allow(unused_imports)]
 use log::{debug,info};
+use std::os::raw::{c_void, c_int};
 
 /// code = 0, success
 pub static C_GROUP_SUCCESS: libc::c_int = 0;
@@ -240,6 +265,31 @@ pub enum cgroup {}
 pub enum cgroup_controller {}
 
 
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub enum cgroup_file_type{
+    FILE,
+    DIR,
+    OTHER
+}
+
+
+#[repr(C)]
+pub struct CGroupFileInfo {
+    pub c_type: cgroup_file_type,
+    pub path: *const libc::c_char,
+    pub parent: *const libc::c_char,
+    pub full_path: *const libc::c_char,
+    pub depth: libc::c_short,
+}
+
+impl Default for CGroupFileInfo {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
+
+
 
 #[repr(C)]
 #[derive(Copy)]
@@ -261,6 +311,26 @@ impl Default for CGroupStat {
 }
 
 
+
+
+#[repr(C)]
+#[derive(Copy)]
+pub struct CGroupMountPoint{
+    pub name: [libc::c_char; libc::FILENAME_MAX as usize],
+    pub path: [libc::c_char; libc::FILENAME_MAX as usize],
+}
+
+impl Clone for CGroupMountPoint {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl Default for CGroupMountPoint {
+    fn default() -> Self {
+        unsafe { std::mem::zeroed() }
+    }
+}
 
 
 #[repr(C)]
@@ -327,10 +397,10 @@ extern "C" {
     )->libc::c_int;
     pub fn cgroup_get_uid_gid(
         cg:*mut cgroup,
-        tasks_uid: *mut libc::uid_t,
-        tasks_gid: *mut libc::gid_t,
-        ctrl_uid: *mut libc::uid_t,
-        ctrl_gid: *mut libc::gid_t
+        tasks_uid: *const libc::uid_t,
+        tasks_gid: *const libc::gid_t,
+        ctrl_uid: *const libc::uid_t,
+        ctrl_gid: *const libc::gid_t
     )->libc::c_int;
 
 
@@ -362,7 +432,7 @@ extern "C" {
     pub fn cgroup_get_value_string(
         cg_ctrl:*mut cgroup_controller,
         name:*const libc::c_char,
-        value:*mut *mut libc::c_char
+        value:*const *const libc::c_char
     )->libc::c_int;
 
     pub fn cgroup_get_value_int64(
@@ -411,6 +481,16 @@ extern "C" {
     pub fn cgroup_get_value_name(cg_ctrl:*mut cgroup_controller,idx:libc::c_int)->*mut libc::c_char;
 
 
+
+    // 3.Iterators
+    pub fn cgroup_walk_tree_begin(
+        ctrl: *const libc::c_char,
+        base_path: *const libc::c_char,
+        depth: libc::c_int,
+        handle: *mut *mut libc::c_void,
+        info: *mut cgroup_file_type,
+        base_level: *mut c_int
+    )->libc::c_int;
 
 
 
