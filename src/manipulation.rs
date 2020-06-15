@@ -1,10 +1,93 @@
+//!
+//! ### 2.Group Manipulation API
+//!
+//! URL: [Group Manipulation API](http://libcg.sourceforge.net/html/group__group__groups.html)
+//!
+//! Functions:
+//!    - cgroup_new_cgroup
+//!    - cgroup_add_controller
+//!    - cgroup_get_controller
+//!    - cgroup_free
+//!    - cgroup_free_controllers
+//!    - cgroup_create_cgroup
+//!    - cgroup_create_cgroup_from_parent
+//!    - cgroup_modify_cgroup
+//!    - cgroup_delete_cgroup
+//!    - cgroup_delete_cgroup_ext
+//!    - cgroup_get_cgroup
+//!    - cgroup_copy_cgroup
+//!    - cgroup_compare_cgroup
+//!    - cgroup_compare_controllers
+//!    - cgroup_set_uid_gid
+//!    - cgroup_get_uid_gid
+//!    - cgroup_add_value_*
+//!    - cgroup_get_value_*
+//!    - cgroup_set_value_*
+//!    - cgroup_get_value_name_count
+//!    - cgroup_get_value_name
+//!
+//! Usage(Create):
+//! ```
+//! use libcgroup_rs::initialization::CGroupInitializer;
+//! use libcgroup_rs::manipulation::CGroupBuilder;
+//! use libcgroup_rs::error::{cg_get_error, C_EC_GROUP_NOT_ALLOWED};
+//!
+//! fn main()->Result<(),Box<dyn std::error::Error>>{
+//!     CGroupInitializer::init()?;
+//!     let container_name = "foo";
+//!     let cg = CGroupBuilder::new(container_name)?;
+//!     println!("Source CG = {:?}",cg);
+//!
+//!     // append controller
+//!     println!("Add Controller = {:?}",cg.add_controller("cpu")?);
+//!     println!("Get Controller = {:?}",cg.get_controller("cpu")?);
+//!
+//!     //only root
+//!     match cg.create(0) {
+//!         Ok(_) => (),
+//!         Err(e) if e.kind().eq(&cg_get_error(C_EC_GROUP_NOT_ALLOWED).kind()) =>{
+//!             println!("Only root! = use sudo ?");
+//!             return Ok(());
+//!         }
+//!         Err(e) => return Err(Box::new(e))
+//!     }
+//!     Ok(())
+//! }
+//! ```
+//!
+//! Usage(Create with params):
+//! ```
+//! use libcgroup_rs::initialization::CGroupInitializer;
+//! use libcgroup_rs::manipulation::CGroupBuilder;
+//! use libcgroup_rs::error::{cg_get_error, C_EC_GROUP_NOT_ALLOWED};
+//!
+//! fn main()->Result<(),Box<dyn std::error::Error>>{
+//!     CGroupInitializer::init()?;
+//!
+//!     let container_name = "foo";
+//!     let container = CGroupBuilder::new(container_name)?;
+//!     println!("Container = {:?}",container);
+//!
+//!     let ctrl = container.add_controller("cpu")?;
+//!     println!("Controller = {:?}",ctrl);
+//!
+//!     // cfg = /cgroups/foo/cpu/cfs_quota_us
+//!     ctrl.add_u64("cpu.cfs_quota_us",50000)?;
+//!
+//!     // cfg = /cgroups/foo/cpu/cfs_period_us
+//!     ctrl.add_u64("cpu.cfs_period_us",100000)?;
+//!
+//!     // create
+//!     container.create(0)?;
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
 
-#[allow(unused_imports)]
 use crate::prelude::*;
-
-#[allow(unused_imports)]
-use log::{debug,info,error};
-
+use crate::error::*;
+use log::{info,error};
 
 
 #[derive(Debug)]
@@ -22,48 +105,24 @@ pub struct CGroupBuilder<'a>{
 }
 
 
-#[derive(Debug)]
-pub struct CGroupWalkTreeIterator{
-    c_groups_ctrl: *mut cgroup_controller,
-}
-
-
-impl CGroupWalkTreeIterator{
-    pub fn init(c_groups_ctrl: *mut cgroup_controller)->Self{
-        let mut ctrl = Self{
-            c_groups_ctrl
-        };
-
-        ctrl
-    }
-
-    pub fn tree_begin(&self){
-        unsafe {
-
-        }
-    }
-
-}
-
-
 
 impl<'a> CGroupBuilder<'a>{
 
     pub fn new(name:&'a str)->Result<Self,std::io::Error>{
-       let mut cg = Self{
-           name,
-           c_groups:std::ptr::null_mut(),
-       };
-       cg.c_groups = unsafe {
-           let c_name = std::ffi::CString::new(cg.name)?;
-           cgroup_new_cgroup(c_name.as_ptr())
-       };
+        let mut cg = Self{
+            name,
+            c_groups:std::ptr::null_mut(),
+        };
+        cg.c_groups = unsafe {
+            let c_name = std::ffi::CString::new(cg.name)?;
+            cgroup_new_cgroup(c_name.as_ptr())
+        };
 
-       if cg.c_groups.is_null() {
-           return Err(CGroup::get_error(C_EC_GROUP_NOT_CREATED))
-       }
-       Ok(cg)
-   }
+        if cg.c_groups.is_null() {
+            return Err(cg_get_error(C_EC_GROUP_NOT_CREATED))
+        }
+        Ok(cg)
+    }
 
     pub fn is_null(&self)->bool{
         self.c_groups.is_null()
@@ -75,7 +134,7 @@ impl<'a> CGroupBuilder<'a>{
             let c_ctrl_ptr = cgroup_add_controller(self.c_groups,c_ctrl_name.as_ptr());
             info!("CGroupBuilder::add_controller[return pointer] = {:?}",c_ctrl_ptr);
             if c_ctrl_ptr.is_null() {
-                return Err(CGroup::get_error(C_EC_CONTROLLER_CREATE_FAILED))
+                return Err(cg_get_error(C_EC_CONTROLLER_CREATE_FAILED))
             }
             return Ok(CGroupControllerBuilder::new(String::from(ctrl_name),self.c_groups,c_ctrl_ptr));
         }
@@ -87,7 +146,7 @@ impl<'a> CGroupBuilder<'a>{
             let c_ctrl_ptr = cgroup_get_controller(self.c_groups,c_ctrl_name.as_ptr());
             info!("CGroupBuilder::get_controller[return pointer] = {:?}",c_ctrl_ptr);
             if c_ctrl_ptr.is_null() {
-                return Err(CGroup::get_error(C_EC_CONTROLLER_CREATE_FAILED))
+                return Err(cg_get_error(C_EC_CONTROLLER_CREATE_FAILED))
             }
             return Ok(CGroupControllerBuilder::new(String::from(ctrl_name),self.c_groups,c_ctrl_ptr));
         }
@@ -119,7 +178,7 @@ impl<'a> CGroupBuilder<'a>{
             let ret = cgroup_create_cgroup(self.c_groups,c_ignore_ownership);
             info!("CGroupBuilder::create[return code] = {}",ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -131,7 +190,7 @@ impl<'a> CGroupBuilder<'a>{
             let ret = cgroup_create_cgroup_from_parent(self.c_groups,c_ignore_ownership);
             info!("CGroupBuilder::create_from_parent[return code] = {}",ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -142,7 +201,7 @@ impl<'a> CGroupBuilder<'a>{
             let ret = cgroup_modify_cgroup(self.c_groups);
             info!("CGroupBuilder::modify[return code] = {}",ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
 
@@ -155,7 +214,7 @@ impl<'a> CGroupBuilder<'a>{
             let ret = cgroup_delete_cgroup(self.c_groups,c_ignore_migration);
             info!("CGroupBuilder::delete[return code] = {}",ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -167,17 +226,17 @@ impl<'a> CGroupBuilder<'a>{
             let ret = cgroup_delete_cgroup_ext(self.c_groups,c_flags);
             info!("CGroupBuilder::delete_ext[return code] = {}",ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
     }
 
     pub fn set_uid_pid(&self,
-       tasks_uid:u32,
-       tasks_gid:u32,
-       ctrl_uid:u32,
-       ctrl_gid:u32
+                       tasks_uid:u32,
+                       tasks_gid:u32,
+                       ctrl_uid:u32,
+                       ctrl_gid:u32
     )->Result<(),std::io::Error>{
         unsafe {
             let c_tasks_uid = libc::uid_t::from(tasks_uid);
@@ -194,7 +253,7 @@ impl<'a> CGroupBuilder<'a>{
 
             info!("CGroupBuilder::set_uid_pid[return code] = {}",ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -217,7 +276,7 @@ impl<'a> CGroupBuilder<'a>{
 
             info!("CGroupBuilder::get_uid_pid[return code] = {}",ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
 
             Ok((
@@ -253,7 +312,7 @@ impl CGroupControllerBuilder {
 
             info!("CGroupControllerBuilder::add_str[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -270,7 +329,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::add_i64[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -287,7 +346,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::add_u64[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -303,7 +362,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::add_bool[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -321,7 +380,7 @@ impl CGroupControllerBuilder {
 
             info!("CGroupControllerBuilder::set_str[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -338,7 +397,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::set_i64[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -355,7 +414,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::set_u64[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -371,7 +430,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::set_bool[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
         }
         Ok(())
@@ -389,7 +448,7 @@ impl CGroupControllerBuilder {
 
             info!("CGroupControllerBuilder::get_str[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
             Ok(std::ffi::CStr::from_ptr(c_value)
                 .to_string_lossy()
@@ -409,7 +468,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::get_i64[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
             Ok(c_value as i64)
         }
@@ -426,7 +485,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::get_u64[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
             Ok(c_value as u64)
         }
@@ -443,7 +502,7 @@ impl CGroupControllerBuilder {
             );
             info!("CGroupControllerBuilder::get_bool[return code] = {}", ret);
             if ret != C_GROUP_SUCCESS {
-                return Err(CGroup::get_error(ret));
+                return Err(cg_get_error(ret));
             }
             Ok(c_value as bool)
         }
@@ -513,7 +572,3 @@ impl PartialEq for CGroupControllerBuilder{
         false
     }
 }
-
-
-
-
