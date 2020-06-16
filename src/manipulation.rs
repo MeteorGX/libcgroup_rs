@@ -108,6 +108,7 @@ pub struct CGroupBuilder<'a>{
 
 impl<'a> CGroupBuilder<'a>{
 
+
     pub fn new(name:&'a str)->Result<Self,std::io::Error>{
         let mut cg = Self{
             name,
@@ -289,6 +290,39 @@ impl<'a> CGroupBuilder<'a>{
     }
 
 
+
+    pub fn attach_task(&self)->Result<(),std::io::Error>{
+        unsafe {
+            let ret = cgroup_attach_task(self.c_groups);
+            info!("CGroupBuilder::attach_task[return code] = {}",ret);
+        }
+
+        Ok(())
+    }
+
+    pub fn attach_task_pid(&self,pid:i32)->Result<(),std::io::Error>{
+        unsafe {
+            let c_pid = libc::pid_t::from(pid);
+            let ret = cgroup_attach_task_pid(self.c_groups,c_pid);
+            info!("CGroupBuilder::attach_task_pid[return code] = {}",ret);
+        }
+        Ok(())
+    }
+
+    pub fn attach_task_shell(&self)->Result<(),std::io::Error>{
+
+        unsafe {
+
+            self.attach_task()?;
+
+            //execute default shell
+            std::process::Command::new("/bin/sh")
+                .stderr(std::process::Stdio::null())
+                .spawn()?;
+
+        }
+        Ok(())
+    }
 
 }
 
