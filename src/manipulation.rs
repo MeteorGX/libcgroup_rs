@@ -108,6 +108,7 @@ pub struct CGroupBuilder<'a>{
 
 impl<'a> CGroupBuilder<'a>{
 
+
     pub fn new(name:&'a str)->Result<Self,std::io::Error>{
         let mut cg = Self{
             name,
@@ -290,6 +291,56 @@ impl<'a> CGroupBuilder<'a>{
 
 
 
+    pub fn attach_task(&self)->Result<(),std::io::Error>{
+        unsafe {
+            let ret = cgroup_attach_task(self.c_groups);
+            info!("CGroupBuilder::attach_task[return code] = {}",ret);
+        }
+
+        Ok(())
+    }
+
+    pub fn attach_task_pid(&self,pid:i32)->Result<(),std::io::Error>{
+        unsafe {
+            let c_pid = libc::pid_t::from(pid);
+            let ret = cgroup_attach_task_pid(self.c_groups,c_pid);
+            info!("CGroupBuilder::attach_task_pid[return code] = {}",ret);
+        }
+        Ok(())
+    }
+
+    pub fn attach_task_shell(&self)->Result<(),std::io::Error>{
+
+        unsafe {
+            let pid = libc::fork();
+            if pid < 0 {
+                return Err(std::io::Error::new(std::io::ErrorKind::Other,"Failed by fork"))
+            }else if pid == 0 {
+                let pid = libc::getpid();
+                self.attach_task_pid(pid)?;
+
+                let c_exec_app = std::ffi::CString::new("/bin/sh")?;
+                let ret = libc::execl(c_exec_app.as_ptr(),std::ptr::null());
+                if ret != C_GROUP_SUCCESS {
+                    return Err(std::io::Error::new(
+                       std::io::Error::from_raw_os_error(ret).kind(),
+                        "Failed by Attach CGroup Shell"
+                    ));
+                }
+
+            }else {
+                let pid = libc::getpid();
+                let mut status = libc::c_int::from(0 as i32);
+                let ppid = libc::wait(&mut status);
+                info!("Fork Parent = {}",pid);
+                info!("Fork Child = {}",ppid);
+                if status != C_GROUP_SUCCESS {
+                    return Err(std::io::Error::from_raw_os_error(status));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl CGroupControllerBuilder {

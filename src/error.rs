@@ -114,9 +114,14 @@ pub fn cg_get_error(code:libc::c_int)->std::io::Error{
     unsafe {
         std::io::Error::new(
             std::io::Error::from_raw_os_error(code).kind(),
-            std::ffi::CStr::from_ptr(cgroup_strerror(code))
-                .to_string_lossy()
-                .into_owned()
+            if code == C_EC_OTHER {
+                    format!("Unknown Error = {}",code)
+                }else{
+                    std::ffi::CStr::from_ptr(cgroup_strerror(code))
+                        .to_string_lossy()
+                        .into_owned()
+                }
+
         )
     }
 }
