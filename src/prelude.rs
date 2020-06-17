@@ -396,6 +396,10 @@ extern "C" {
     )->libc::c_int;
 
 
+    // 5. Configuration
+    pub fn cgroup_config_load_config(pathname:*const libc::c_char)->libc::c_int;
+    pub fn cgroup_unload_cgroups()->libc::c_int;
+
 
     // 6.Error handling
     pub fn cgroup_get_last_errno()->libc::c_int;
