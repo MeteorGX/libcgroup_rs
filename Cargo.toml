@@ -3,9 +3,14 @@ name = "libcgroup_rs"
 version = "0.1.0"
 authors = ["MeteorCat <meteorcat@live.cn>"]
 edition = "2018"
+description = "C FFI libcgroup"
+license = "MIT"
+readme = "README.md"
+keywords = ["ffi","cgroup","c"]
+repository = "https://github.com/MeteorGX/libcgroup_rs"
+documentation = "https://docs.rs/libcgroup_rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libc = "*"
-log = "*"
+libc = "0.2.71"
+log = "0.4.8"
